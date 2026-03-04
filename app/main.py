@@ -5,7 +5,7 @@ This file handles:
 2. Exposing an HTTP API endpoint for chat requests
 3. Acting as an adapter layer between the frontend and whichever backend provider we use (Mock, MCP, etc.)
 
-IMPORTANT:
+note to self:
 - This file does NOT contain scientific logic.
 - It does NOT modify CUWALID outputs.
 - It ONLY adapts requests and responses between UI and backend.
@@ -134,7 +134,7 @@ def _handle_intent(intent: dict) -> dict:
     map_url = store.build_map_path(year, season, location_id, variable, language)
 
     # 4) Return stable contract (UI can later show attachments)
-    # NOTE: flood reversal meaning is handled in label/notes; you can refine messaging later.
+    # NOTE: flood reversal meaning is handled in label/notes; refine messaging later.
     return {
         "kind": "success",
         "reply": (
@@ -165,7 +165,7 @@ async def mock_chat(message: str) -> dict:
     """
     Mock provider used for development/testing.
 
-    UPDATED:
+    UPDATED BEHAVIOR (04/03/2026):
     - Instead of random mock replies, we now:
       1) extract structured intent, stub until MCP
       2) deterministically fetch forecast from ForecastStore in core/forecast_store.py
@@ -188,7 +188,7 @@ async def mock_chat(message: str) -> dict:
 
 async def mcp_chat(message: str) -> dict:
     """
-    Placeholder for MCP integration.
+    Placeholder for MCP integration. 
 
     Future behavior:
     - Call MCP/LLM extractor -> structured intent JSON

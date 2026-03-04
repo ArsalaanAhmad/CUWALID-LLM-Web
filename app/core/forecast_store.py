@@ -1,7 +1,9 @@
 
-# think of this as the "model" layer for your seasonal forecasts. It has no knowledge of the UI or how data will be used. 
+# think of this as the "model" or truth layer for your seasonal forecasts. It has no knowledge of the UI or how data will be used. 
 # It just provides a clean API for loading and querying forecasts, and applying any necessary logic (e.g. flood reversal).
 #  By centralizing this logic here, you can keep your UI and backend provider code simple and focused on their respective roles.
+
+#NOTE : Before making more changes to this file, do ask the main developer about the expected CSV Format and LLM Json format.
 
 from __future__ import annotations
 
@@ -38,7 +40,7 @@ class ForecastStore:
         # location index: (country -> normalized place -> location_id)
         self.place_to_id: Dict[str, Dict[str, str]] = {}
 
-        # predictions: key -> status_code (0/1/2)
+        # predictions: key ---> status_code (0/1/2)
         self.predictions: Dict[PredictionKey, int] = {}
 
         # Keep a manifest for supported values (useful for /api/manifest)
@@ -73,7 +75,7 @@ class ForecastStore:
 
         for f in csv_files:
             # infer year/season/country from path if possible
-            # e.g. data/2026/OND/kenya.csv
+            # like, data/2026/OND/kenya.csv
             year, season, country = self._infer_meta_from_path(f)
 
             self.supported_countries.add(country)
@@ -174,8 +176,8 @@ class ForecastStore:
         # Flood reversal rule:
         if key.variable == "flood":
             # Interpret reversal: 0 (above normal) becomes "bad" instead of good.
-            # You can either flip the label later OR flip the status code here.
-            # Safer: keep raw code and mark reversal; we’ll handle in labeling.
+            # at some point, either flip the label later OR flip the status code here.
+            # for now, just the raw code and mark reversal; we’ll handle in labeling.
             return status
 
         return status
@@ -206,6 +208,5 @@ class ForecastStore:
             return normal_map[status_code]
 
         # Flood reversal: Above Normal is bad, Below Normal is good.
-        # We keep the label text but you might want to add a "risk" label too.
-        # Minimal: still return the tercile label but you can add a flag in response.
+        # Minimal: still return the tercile label but perhaps(?) can add a flag in response.
         return normal_map[status_code]

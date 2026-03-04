@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional
 from app.providers.base import ChatProvider
 from app.core.contract import ChatResult
 
-# These imports must exist in your environment where MCP is installed
+# These imports must exist in this environment where/if MCP is installed
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
