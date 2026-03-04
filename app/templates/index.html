@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CUWALID-GPT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="left">
+      <div class="brand">CUWALID-GPT</div>
+    </div>
+
+    <div class="right">
+      <a class="link" href="{{ docs_url }}">Back to CUWALID Docs</a>
+      <a class="link" href="#" id="termsLink">Terms</a>
+      <button id="themeToggle" class="ghost" type="button">Light</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Landing / Intro Screen -->
+    <section id="landing" class="landing">
+      <h1 class="hero-title">CUWALID-GPT</h1>
+      <p class="hero-subtitle">
+        Natural-language access to post-processed seasonal water and hydrological forecasts,
+        plus guidance for deploying CUWALID workflows.
+      </p>
+
+      <div class="hero-actions">
+        <button id="startBtn" class="primary" type="button">Start</button>
+        <a class="secondary" href="{{ docs_url }}">Back to CUWALID Docs</a>
+      </div>
+
+      <p class="hero-footnote">
+        Note: Provides interpretation and guidance. It does not generate new forecasts or make decisions.
+      </p>
+    </section>
+
+    <!-- Chat Screen -->
+    <section id="chatScreen" class="chat-screen hidden">
+      <div class="chat-header">
+        <div class="chat-badge">Mode: <span id="modeLabel">Insight</span></div>
+        <div class="chat-actions">
+          <button id="clearChat" class="ghost" type="button">Clear</button>
+          <button id="backToLanding" class="ghost" type="button">Home</button>
+        </div>
+      </div>
+
+      <div id="chat" class="chat"></div>
+
+      <form id="chatForm" class="composer">
+        <input id="message" type="text" placeholder="Ask about a forecast or deployment..." autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+
+      <div class="hint">
+        Tip: This is a UI stub. Backend integration comes after MCP onboarding.
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
