@@ -20,45 +20,98 @@
     </div>
   </header>
 
-  <main class="container">
-    <!-- Landing / Intro Screen -->
-    <section id="landing" class="landing">
-      <h1 class="hero-title">CUWALID-GPT</h1>
-      <p class="hero-subtitle">
-        Natural-language access to post-processed seasonal water and hydrological forecasts,
-        plus guidance for deploying CUWALID workflows.
-      </p>
+  <main class="app-layout">
+    <aside class="side-panel" aria-label="Chat options and filters">
+      <div class="side-panel-inner">
+        <div class="side-title">CUWALID Assistant</div>
+        <div class="beta-pill">Beta</div>
 
-      <div class="hero-actions">
-        <button id="startBtn" class="primary" type="button">Start</button>
-        <a class="secondary" href="{{ docs_url }}">Back to CUWALID Docs</a>
-      </div>
+        <button id="newChatBtn" class="ghost side-btn" type="button">+ New chat</button>
 
-      <p class="hero-footnote">
-        Note: Provides interpretation and guidance. It does not generate new forecasts or make decisions.
-      </p>
-    </section>
+        <div class="filter-block">
+          <div class="filter-label">Filter by documents</div>
+          <div class="row options-row">
+            <label><input type="radio" name="docSort" checked disabled /> A-Z</label>
+            <label><input type="radio" name="docSort" disabled /> By Year</label>
+          </div>
+          <select class="fake-select" disabled>
+            <option>Search documents (coming soon)</option>
+          </select>
+        </div>
 
-    <!-- Chat Screen -->
-    <section id="chatScreen" class="chat-screen hidden">
-      <div class="chat-header">
-        <div class="chat-badge">Mode: <span id="modeLabel">Insight</span></div>
-        <div class="chat-actions">
-          <button id="clearChat" class="ghost" type="button">Clear</button>
-          <button id="backToLanding" class="ghost" type="button">Home</button>
+        <div class="filter-block">
+          <div class="filter-label">Filter by report series</div>
+          <select class="fake-select" disabled>
+            <option>Select report (coming soon)</option>
+          </select>
+        </div>
+
+        <div class="filter-block">
+          <div class="filter-label">Select audience</div>
+          <select class="fake-select" disabled>
+            <option>General Public</option>
+          </select>
         </div>
       </div>
+    </aside>
 
-      <div id="chat" class="chat"></div>
+    <section class="main-panel">
+      <!-- Landing / Intro Screen -->
+      <section id="landing" class="landing">
+        <h1 class="hero-title">CUWALID-GPT</h1>
+        <p class="hero-subtitle">
+          Natural-language access to post-processed seasonal water and hydrological forecasts,
+          plus guidance for deploying CUWALID workflows.
+        </p>
 
-      <form id="chatForm" class="composer">
-        <input id="message" type="text" placeholder="Ask about a forecast or deployment..." autocomplete="off" />
-        <button type="submit">Send</button>
-      </form>
+        <div class="hero-actions">
+          <button id="startBtn" class="primary" type="button">Start</button>
+          <a class="secondary" href="{{ docs_url }}">Back to CUWALID Docs</a>
+        </div>
 
-      <div class="hint">
-        Tip: This is a UI stub. Backend integration comes after MCP onboarding.
-      </div>
+        <p class="hero-footnote">
+          Note: Provides interpretation and guidance. It does not generate new forecasts or make decisions.
+        </p>
+      </section>
+
+      <!-- Chat Screen -->
+      <section id="chatScreen" class="chat-screen hidden">
+        <div class="chat-header">
+          <div class="chat-badge">Mode: <span id="modeLabel">Insight</span></div>
+          <div class="chat-actions">
+            <button id="clearChat" class="ghost" type="button">Clear</button>
+            <button id="backToLanding" class="ghost" type="button">Home</button>
+          </div>
+        </div>
+
+        <div class="welcome-panel" id="welcomePanel">
+          <h2 class="welcome-title">What can I help with today?</h2>
+          <p class="welcome-copy">Try one of these example prompts.</p>
+
+          <div class="prompt-grid">
+            <button class="prompt-card" data-prompt="What is the crop forecast for Marsabit, Kenya in OND 2026 in English?" type="button">
+              What is the crop forecast for Marsabit, Kenya in OND 2026 in English?
+            </button>
+            <button class="prompt-card" data-prompt="Summarise pasture conditions for Garissa for MAM 2026." type="button">
+              Summarise pasture conditions for Garissa for MAM 2026.
+            </button>
+            <button class="prompt-card" data-prompt="Explain flood outlook for Wajir and what code 0/1/2 means." type="button">
+              Explain flood outlook for Wajir and what code 0/1/2 means.
+            </button>
+          </div>
+        </div>
+
+        <div id="chat" class="chat"></div>
+
+        <form id="chatForm" class="composer">
+          <input id="message" type="text" maxlength="2000" placeholder="Ask about a forecast or deployment..." autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+
+        <div class="hint">
+          Tip: This is a UI stub. Backend integration comes after MCP onboarding.
+        </div>
+      </section>
     </section>
   </main>
 

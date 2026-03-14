@@ -1,9 +1,10 @@
 :root {
   --bg: #0b0f14;
-  --panel: #0f1620;
+  --panel: #101722;
+  --panel-soft: #121c2a;
   --text: #e6edf3;
-  --muted: rgba(230,237,243,.75);
-  --border: #1f2a36;
+  --muted: rgba(230, 237, 243, 0.75);
+  --border: #233043;
   --link: #9cc2ff;
   --primary: #22c55e;
   --user: #1d4ed8;
@@ -13,8 +14,9 @@
 [data-theme="light"] {
   --bg: #f6f7fb;
   --panel: #ffffff;
+  --panel-soft: #f2f5fa;
   --text: #0b0f14;
-  --muted: rgba(11,15,20,.70);
+  --muted: rgba(11, 15, 20, 0.7);
   --border: #d8dde6;
   --link: #245bdb;
   --primary: #16a34a;
@@ -22,7 +24,9 @@
   --bot: #eef2f7;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -31,14 +35,16 @@ body {
   color: var(--text);
 }
 
-.hidden { display: none; }
+.hidden {
+  display: none;
+}
 
 .topbar {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:16px 20px;
-  border-bottom:1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
   background: var(--panel);
   position: sticky;
   top: 0;
@@ -46,16 +52,95 @@ body {
 }
 
 .topbar .right {
-  display:flex;
+  display: flex;
   gap: 14px;
-  align-items:center;
+  align-items: center;
 }
 
-.brand { font-weight: 800; letter-spacing: 0.02em; }
+.brand {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
 
-.link { color: var(--link); text-decoration:none; font-weight: 600; }
+.link {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 600;
+}
 
-.container { max-width: 980px; margin: 0 auto; padding: 24px 16px; }
+.app-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: calc(100vh - 64px);
+}
+
+.side-panel {
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+}
+
+.side-panel-inner {
+  padding: 18px;
+}
+
+.side-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.beta-pill {
+  display: inline-block;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: color-mix(in srgb, var(--link) 20%, transparent);
+  border: 1px solid var(--border);
+}
+
+.side-btn {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.filter-block {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+
+.filter-label {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.options-row {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.options-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.9;
+}
+
+.fake-select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--muted);
+}
+
+.main-panel {
+  padding: 22px;
+}
 
 .landing {
   padding: 56px 22px;
@@ -63,11 +148,12 @@ body {
   border-radius: 16px;
   background: var(--panel);
   text-align: center;
+  max-width: 1000px;
 }
 
 .hero-title {
   margin: 0 0 12px 0;
-  font-size: 3.4rem;
+  font-size: 3rem;
   letter-spacing: -0.02em;
 }
 
@@ -114,19 +200,21 @@ body {
   font-size: 0.95rem;
 }
 
-.chat-screen { padding-top: 6px; }
+.chat-screen {
+  max-width: 1100px;
+}
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .chat-actions {
-  display:flex;
+  display: flex;
   gap: 10px;
-  align-items:center;
+  align-items: center;
 }
 
 .chat-badge {
@@ -138,45 +226,98 @@ body {
   opacity: 0.95;
 }
 
+.welcome-panel {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  margin-bottom: 12px;
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.welcome-copy {
+  margin: 6px 0 16px;
+  color: var(--muted);
+}
+
+.prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.prompt-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 100px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.prompt-card:hover {
+  border-color: color-mix(in srgb, var(--link) 45%, var(--border));
+}
+
 .chat {
-  height: 65vh;
-  overflow:auto;
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:12px;
+  height: 48vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
   background: var(--panel);
 }
 
 .bubble {
-  padding:10px 12px;
-  border-radius:12px;
-  margin:8px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin: 8px 0;
   max-width: 78%;
   line-height: 1.35;
   white-space: pre-wrap;
 }
 
-.user { margin-left:auto; background: var(--user); color: #fff; }
-.bot { margin-right:auto; background: var(--bot); color: var(--text); }
+.user {
+  margin-left: auto;
+  background: var(--user);
+  color: #fff;
+}
 
-.composer { display:flex; gap:10px; margin-top:12px; }
+.bot {
+  margin-right: auto;
+  background: var(--bot);
+  color: var(--text);
+}
+
+.composer {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
 
 input {
-  flex:1;
-  padding:12px;
-  border-radius:12px;
-  border:1px solid var(--border);
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
 }
 
 button {
-  padding:12px 16px;
-  border-radius:12px;
-  border:0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 0;
   background: var(--primary);
-  font-weight:800;
-  cursor:pointer;
+  font-weight: 800;
+  cursor: pointer;
   color: #0b0f14;
 }
 
@@ -190,5 +331,23 @@ button {
   font-weight: 700;
 }
 
-.hint { margin-top: 10px; opacity: 0.75; font-size: 0.95rem; }
+.hint {
+  margin-top: 10px;
+  opacity: 0.75;
+  font-size: 0.95rem;
+}
 
+@media (max-width: 1080px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .side-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .prompt-grid {
+    grid-template-columns: 1fr;
+  }
+}
