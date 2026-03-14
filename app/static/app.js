@@ -7,6 +7,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("chatForm");
   const input = document.getElementById("message");
 
+
+
+
   const landing = document.getElementById("landing");
   const chatScreen = document.getElementById("chatScreen");
   const startBtn = document.getElementById("startBtn");
