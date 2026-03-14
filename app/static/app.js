@@ -79,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const prompt = card.dataset.prompt || "";
       showChat();
       input.value = prompt;
-      form.requestSubmit();
+      input.focus();
     });
   });
 
