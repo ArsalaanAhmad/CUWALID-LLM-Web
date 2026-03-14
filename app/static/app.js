@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("app.js loaded");
+  console.log("app.js loaded"); // Debugging Log, feel free to delete
 
   // Variables for DOM
   const chat = document.getElementById("chat");
@@ -11,9 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const startBtn = document.getElementById("startBtn");
   const backToLanding = document.getElementById("backToLanding");
   const clearChat = document.getElementById("clearChat");
-  const newChatBtn = document.getElementById("newChatBtn");
-  const welcomePanel = document.getElementById("welcomePanel");
-  const promptCards = document.querySelectorAll(".prompt-card");
+
+  // audience chips (UI-only for now)
+  const audienceChips = document.querySelectorAll(".audience-chip");
 
   // Theme toggle button and root element for theme switching
   const themeToggle = document.getElementById("themeToggle");
@@ -63,23 +63,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function clearChatUI() {
     chat.innerHTML = "";
-    if (welcomePanel) welcomePanel.classList.remove("hidden");
   }
 
   clearChat.addEventListener("click", clearChatUI);
-  if (newChatBtn) {
-    newChatBtn.addEventListener("click", () => {
-      clearChatUI();
-      showChat();
-    });
-  }
 
-  promptCards.forEach((card) => {
-    card.addEventListener("click", () => {
-      const prompt = card.dataset.prompt || "";
-      showChat();
-      input.value = prompt;
-      input.focus();
+  audienceChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      audienceChips.forEach((c) => c.classList.remove("is-active"));
+      chip.classList.add("is-active");
     });
   });
 
@@ -88,8 +79,6 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const message = input.value.trim();
     if (!message) return;
-
-    if (welcomePanel) welcomePanel.classList.add("hidden");
 
     addBubble(message, "user");
     input.value = "";
@@ -116,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ message })
       });
 
