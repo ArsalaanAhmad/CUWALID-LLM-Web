@@ -1,11 +1,12 @@
 """
-By: Arsalaan Ahmad (12-02-2026) last update: 03/03/2026
+By: Arsalaan Ahmad (12-02-2026) last update: 04/03/2026
+
 This file handles:
 1. Serving the frontend
 2. Exposing an HTTP API endpoint for chat requests
 3. Acting as an adapter layer between the frontend and whichever backend provider we use (Mock, MCP, etc.)
 
-note to self:
+Note to self:
 - This file does NOT contain scientific logic.
 - It does NOT modify CUWALID outputs.
 - It ONLY adapts requests and responses between UI and backend.
@@ -18,10 +19,13 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import os
 
-# NEW: deterministic truth layer + temporary extractor
+# Deterministic truth layer + extractors
 from app.core.forecast_store import ForecastStore
 from app.core.extractor_stub import extract_intent_stub
+# from app.core.mcp_extractor import extract_intent_via_mcp
 
+# OpeNRouter extractor (currently active)
+from app.core.openrouter_extractor import extract_intent_via_openrouter
 
 # -------------------------------------------------
 # FastAPI App Setup
@@ -29,39 +33,45 @@ from app.core.extractor_stub import extract_intent_stub
 
 app = FastAPI(title="CUWALID-GPT Web Client")
 
-# Mount static folder (CSS, JS, etc.)
+# Mount frontend static files (CSS, JS, etc.)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# OPTIONAL: serve forecast assets (maps/voice) if you have an assets/ folder
-# Adjust path to match repo structure.
+# Optional: serve forecast assets (maps / voice) if present
 if os.path.isdir("assets"):
     app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 templates = Jinja2Templates(directory="app/templates")
 
 DOCS_URL = "https://cuwalid.github.io/"
-CHAT_PROVIDER = os.getenv("CHAT_PROVIDER", "mock")
 
-# NEW: Forecast store (CSV cache). Adjust data_root to your repo structure.
+# Provider mode:
+# - mock = uses local extractor stub
+# - mcp  = uses MCP/OpenRouter extraction
+CHAT_PROVIDER = os.getenv("CHAT_PROVIDER", "mock").strip().lower()
+
+# Forecast data root
 DATA_ROOT = os.getenv("CUWALID_DATA_ROOT", "data")
+
+# In-memory deterministic forecast store
 store = ForecastStore(data_root=DATA_ROOT)
 
 
 @app.on_event("startup")
 def startup():
     """
-    Load all seasonal CSVs into memory so retrieval is fast and deterministic.
+    Load all seasonal forecast CSVs into memory on startup.
+    This makes forecast retrieval deterministic and fast.
     """
     try:
         store.load_all()
     except Exception as e:
-        # Do not crash hard in dev; but log so you notice.
-        # In production you'd likely want to fail startup if data isn't available.
+        # In dev we don't want startup to hard-fail immediately.
+        # In production, you may want to fail loudly instead.
         print(f"[startup] ForecastStore load failed: {e}")
 
 
 # -------------------------------------------------
-# Helper: slot requirements + simple orchestrator
+# Helper: slot requirements + deterministic orchestration
 # -------------------------------------------------
 
 REQUIRED_FIELDS = ["country", "location", "variable", "season", "year", "language"]
@@ -73,7 +83,7 @@ def _is_missing(v) -> bool:
 
 def _clarify_question(intent: dict) -> str:
     """
-    Ask 1 targeted question based on what's missing.
+    Ask one targeted clarification question based on missing fields.
     """
     if _is_missing(intent.get("country")):
         return "Which country is this for? (Kenya / Ethiopia / Somalia)"
@@ -90,25 +100,39 @@ def _clarify_question(intent: dict) -> str:
 
 def _handle_intent(intent: dict) -> dict:
     """
-    Deterministic orchestration:
-    intent (from extractor/LLM) -> resolve -> lookup -> response contract.
+    Deterministic orchestration pipeline:
+
+    intent JSON (from extractor) ->
+    validate required fields ->
+    resolve place -> location_id ->
+    lookup forecast ->
+    build response contract for frontend
     """
-    # 1) Clarify if missing critical slots
+    # 1) Clarify if required fields are missing
     for f in REQUIRED_FIELDS:
         if _is_missing(intent.get(f)):
-            return {"kind": "clarify", "reply": _clarify_question(intent)}
+            return {
+                "kind": "clarify",
+                "reply": _clarify_question(intent)
+            }
 
-    country = intent["country"].strip().lower()
-    location = intent["location"].strip()
-    variable = intent["variable"].strip().lower()
-    season = intent["season"].strip().upper()
-    year = int(intent["year"])
-    language = intent["language"].strip().lower()
+    try:
+        country = intent["country"].strip().lower()
+        location = intent["location"].strip()
+        variable = intent["variable"].strip().lower()
+        season = intent["season"].strip().upper()
+        year = int(intent["year"])
+        language = intent["language"].strip().lower()
+    except Exception:
+        return {
+            "kind": "error",
+            "reply": "I couldn’t parse the extracted request fields correctly."
+        }
 
     # 2) Resolve place -> location_id
     location_id = store.resolve_location_id(country, location)
 
-    # If exact match fails, try search suggestions
+    # If exact match fails, offer suggestions
     if not location_id:
         suggestions = store.search_locations(country=country, q=location, limit=5)
         if suggestions:
@@ -117,12 +141,13 @@ def _handle_intent(intent: dict) -> dict:
                 "kind": "clarify",
                 "reply": f"I couldn’t find an exact match for '{location}'. Did you mean: {opts} ? Reply with the correct place name."
             }
+
         return {
             "kind": "clarify",
             "reply": f"I couldn’t find '{location}' in {country.title()}. Try a nearby district/county name or a different spelling."
         }
 
-    # 3) Deterministic lookup
+    # 3) Deterministic prediction lookup
     status_code = store.get_prediction(country, season, year, location_id, variable)
     if status_code is None:
         return {
@@ -130,16 +155,16 @@ def _handle_intent(intent: dict) -> dict:
             "reply": "I couldn’t find a forecast entry for that combination (season/year/location/variable)."
         }
 
+    # 4) Human-readable label + asset path
     status_label = store.label_status(variable, status_code)
     map_url = store.build_map_path(year, season, location_id, variable, language)
 
-    # 4) Return stable contract (UI can later show attachments)
-    # NOTE: flood reversal meaning is handled in label/notes; refine messaging later.
+    # 5) Return stable contract for frontend
     return {
         "kind": "success",
         "reply": (
-            f"{location} ({country.title()}) — {variable.replace('_',' ').title()} for {season} {year}: "
-            f"{status_label} (code {status_code})."
+            f"{location} ({country.title()}) — {variable.replace('_', ' ').title()} "
+            f"for {season} {year}: {status_label} (code {status_code})."
         ),
         "attachments": [
             {"type": "map", "url": map_url}
@@ -158,55 +183,72 @@ def _handle_intent(intent: dict) -> dict:
 
 
 # -------------------------------------------------
-# Provider Abstraction
+# Provider abstraction
 # -------------------------------------------------
 
 async def mock_chat(message: str) -> dict:
     """
-    Mock provider used for development/testing.
-
-    UPDATED BEHAVIOR (04/03/2026):
-    - Instead of random mock replies, we now:
-      1) extract structured intent, stub until MCP
-      2) deterministically fetch forecast from ForecastStore in core/forecast_store.py
+    Development mode:
+    - uses local extractor_stub
+    - then routes into the deterministic truth layer
     """
     lower = message.lower()
 
-    # UI-level guardrail example: refuse operational decisions
+    # Example hard refusal at interface level
     if "what should we do" in lower or "tell me what to do" in lower:
         return {
             "kind": "refuse",
-            "reply": "I can’t make operational or policy decisions. If you share location + season/year + forecast type, I can summarise the forecast implications and show the relevant map."
+            "reply": "I can’t make operational or policy decisions. If you share location, season/year, and forecast type, I can summarise the forecast implications and show the relevant map."
         }
 
-    # Temporary extraction (replace later with MCP LLM extractor)
     intent = extract_intent_stub(message)
-
-    # NOTE: extractor_stub may not fill location/season/year yet; clarifications will trigger.
     return _handle_intent(intent)
 
+async def openrouter_chat(message: str) -> dict:
+    """
+    Real OpenRouter-backed extraction:
+    - sends user text to Qwen
+    - receives structured JSON
+    - passes it into the deterministic truth layer
+    """
+    lower = message.lower()
 
+    if "what should we do" in lower or "tell me what to do" in lower:
+        return {
+            "kind": "refuse",
+            "reply": "I can’t make operational or policy decisions. If you share location, season/year, and forecast type, I can summarise the forecast implications and show the relevant map."
+        }
+
+    intent = await extract_intent_via_openrouter(message)
+    return _handle_intent(intent)
+
+# Below Section currently INACTIVE.
+""""" 
 async def mcp_chat(message: str) -> dict:
-    """
-    Placeholder for MCP integration. 
 
-    Future behavior:
-    - Call MCP/LLM extractor -> structured intent JSON
-    - Run _handle_intent(intent) to fetch deterministic results
-    - Optionally call MCP again to generate nicer NLG response using fetched meta
-    """
-    raise RuntimeError("MCP provider not yet configured.")
+    
+    # Real MCP-backed extraction:
+   # - sends user text to MCP/OpenRouter
+   # - receives structured JSON
+   # - passes it into the deterministic truth layer
+    
+    lower = message.lower()
 
+    # Keep the same hard refusal logic here too
+    if "what should we do" in lower or "tell me what to do" in lower:
+        return {
+            "kind": "refuse",
+            "reply": "I can’t make operational or policy decisions. If you share location, season/year, and forecast type, I can summarise the forecast implications and show the relevant map."
+        }
+
+    intent = await extract_intent_via_mcp(message)
+    return _handle_intent(intent)
+"""
 
 async def chat_provider(message: str) -> dict:
-    """
-    Unified entrypoint used by the API.
-    Frontend always calls this route.
-    """
-    if CHAT_PROVIDER == "mcp":
-        return await mcp_chat(message)
+    if CHAT_PROVIDER == "openrouter":
+        return await openrouter_chat(message)
     return await mock_chat(message)
-
 
 # -------------------------------------------------
 # Frontend Route
@@ -214,7 +256,16 @@ async def chat_provider(message: str) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "docs_url": DOCS_URL})
+    """
+    Serves the landing page / chat UI.
+    """
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "docs_url": DOCS_URL
+        }
+    )
 
 
 # -------------------------------------------------
@@ -228,19 +279,31 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat(payload: ChatRequest):
     """
-    Main API endpoint called by frontend JS.
+    Main frontend chat endpoint.
+
+    Flow:
+    1. Receive free-text user prompt
+    2. Route to provider (mock or MCP)
+    3. Extract structured intent
+    4. Perform deterministic forecast lookup
+    5. Return stable JSON contract to frontend
     """
     message = payload.message.strip()
+
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
     try:
         result = await chat_provider(message)
         return result
-    except Exception:
+    except Exception as e:
+        print(f"[chat] Error: {e}")
         return JSONResponse(
             status_code=500,
-            content={"kind": "error", "reply": "Backend unavailable or misconfigured."}
+            content={
+                "kind": "error",
+                "reply": "Backend unavailable or misconfigured."
+            }
         )
 
 
@@ -250,6 +313,13 @@ async def chat(payload: ChatRequest):
 
 @app.get("/status")
 def status():
+    """
+    Lightweight health/debug endpoint.
+    Useful for confirming:
+    - current provider mode
+    - whether data loaded
+    - which countries/seasons/variables are available
+    """
     return {
         "chat_provider": CHAT_PROVIDER,
         "mcp_ready": CHAT_PROVIDER == "mcp",
@@ -258,3 +328,4 @@ def status():
         "variables_loaded": sorted(store.supported_variables),
         "seasons_loaded": sorted([f"{s}-{y}" for (s, y) in store.supported_seasons]),
     }
+
