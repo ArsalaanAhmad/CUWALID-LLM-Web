@@ -156,7 +156,7 @@ def _handle_intent(intent: dict) -> dict:
         }
 
     # 4) Human-readable label + asset path
-    status_label = store.label_status(variable, status_code)
+    status_label = store.interpret_status(variable, status_code)
     map_url = store.build_map_path(year, season, location_id, variable, language)
 
     # 5) Return stable contract for frontend
