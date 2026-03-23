@@ -28,6 +28,24 @@
         Natural-language access to post-processed seasonal water and hydrological forecasts,
         plus guidance for deploying CUWALID workflows.
       </p>
+      <p class="hero-typed" aria-live="polite">
+        <span id="landingTypewriter"></span><span class="caret" aria-hidden="true"></span>
+      </p>
+
+      <div class="hero-highlights" aria-label="Key capabilities">
+        <div class="highlight-card">
+          <div class="highlight-title">Forecast Clarity</div>
+          <div class="highlight-text">Deterministic, location-specific seasonal outlook responses.</div>
+        </div>
+        <div class="highlight-card">
+          <div class="highlight-title">Guardrailed</div>
+          <div class="highlight-text">Refuses prescriptions, asks clarifications, avoids fabrication.</div>
+        </div>
+        <div class="highlight-card">
+          <div class="highlight-title">Workflow Support</div>
+          <div class="highlight-text">Guidance for CUWALID setup and modelling workflows.</div>
+        </div>
+      </div>
 
       <div class="hero-actions">
         <button id="startBtn" class="primary" type="button">Start</button>
@@ -42,22 +60,67 @@
     <!-- Chat Screen -->
     <section id="chatScreen" class="chat-screen hidden">
       <div class="chat-header">
-        <div class="chat-badge">Mode: <span id="modeLabel">Insight</span></div>
+        <div class="mode-block">
+          <span class="mode-title">Mode</span>
+          <div class="mode-toggle" role="tablist" aria-label="Select assistant mode">
+            <button
+              type="button"
+              class="mode-chip is-active"
+              data-mode="forecast"
+              id="modeForecast"
+            >
+              Forecast
+            </button>
+            <button
+              type="button"
+              class="mode-chip"
+              data-mode="modelling"
+              id="modeModelling"
+            >
+              Modelling Assistant
+            </button>
+          </div>
+        </div>
+
         <div class="chat-actions">
           <button id="clearChat" class="ghost" type="button">Clear</button>
           <button id="backToLanding" class="ghost" type="button">Home</button>
         </div>
       </div>
 
+      <div class="chat-tabs-row" aria-label="Chat sessions">
+        <div id="chatTabs" class="chat-tabs"></div>
+        <button id="addChatBtn" class="ghost" type="button">+ Chat</button>
+      </div>
+
+      <div class="audience-row" aria-label="Select audience">
+        <span class="audience-label">Target audience:</span>
+        <button type="button" class="audience-chip is-active" data-audience="general-public">General Public</button>
+        <button type="button" class="audience-chip" data-audience="practitioners">Practitioners</button>
+        <button type="button" class="audience-chip" data-audience="policy-makers">Policy Makers</button>
+      </div>
+
+      <div class="examples-row" id="examplesRow">
+        <div class="examples-label">Example prompts:</div>
+        <div class="examples-list" id="examplesList">
+          <!-- Filled dynamically by app.js -->
+        </div>
+      </div>
+
       <div id="chat" class="chat"></div>
 
       <form id="chatForm" class="composer">
-        <input id="message" type="text" placeholder="Ask about a forecast or deployment..." autocomplete="off" />
+        <input
+          id="message"
+          type="text"
+          placeholder="Ask about a forecast or deployment..."
+          autocomplete="off"
+        />
         <button type="submit">Send</button>
       </form>
 
       <div class="hint">
-        Tip: This is a UI stub. Backend integration comes after MCP onboarding.
+        Forecast mode uses structured seasonal forecast lookup. Modelling Assistant mode is for CUWALID workflows, setup, and documentation guidance.
       </div>
     </section>
   </main>
