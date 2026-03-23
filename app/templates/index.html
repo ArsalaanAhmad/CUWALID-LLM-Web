@@ -42,11 +42,37 @@
     <!-- Chat Screen -->
     <section id="chatScreen" class="chat-screen hidden">
       <div class="chat-header">
-        <div class="chat-badge">Mode: <span id="modeLabel">Insight</span></div>
+        <div class="mode-block">
+          <span class="mode-title">Mode</span>
+          <div class="mode-toggle" role="tablist" aria-label="Select assistant mode">
+            <button
+              type="button"
+              class="mode-chip is-active"
+              data-mode="forecast"
+              id="modeForecast"
+            >
+              Forecast
+            </button>
+            <button
+              type="button"
+              class="mode-chip"
+              data-mode="modelling"
+              id="modeModelling"
+            >
+              Modelling Assistant
+            </button>
+          </div>
+        </div>
+
         <div class="chat-actions">
           <button id="clearChat" class="ghost" type="button">Clear</button>
           <button id="backToLanding" class="ghost" type="button">Home</button>
         </div>
+      </div>
+
+      <div class="chat-tabs-row" aria-label="Chat sessions">
+        <div id="chatTabs" class="chat-tabs"></div>
+        <button id="addChatBtn" class="ghost" type="button">+ Chat</button>
       </div>
 
       <div class="audience-row" aria-label="Select audience">
@@ -56,15 +82,27 @@
         <button type="button" class="audience-chip" data-audience="policy-makers">Policy Makers</button>
       </div>
 
+      <div class="examples-row" id="examplesRow">
+        <div class="examples-label">Example prompts:</div>
+        <div class="examples-list" id="examplesList">
+          <!-- Filled dynamically by app.js -->
+        </div>
+      </div>
+
       <div id="chat" class="chat"></div>
 
       <form id="chatForm" class="composer">
-        <input id="message" type="text" placeholder="Ask about a forecast or deployment..." autocomplete="off" />
+        <input
+          id="message"
+          type="text"
+          placeholder="Ask about a forecast or deployment..."
+          autocomplete="off"
+        />
         <button type="submit">Send</button>
       </form>
 
       <div class="hint">
-        Tip: This is a UI stub. Backend integration comes after MCP onboarding.
+        Forecast mode uses structured seasonal forecast lookup. Modelling Assistant mode is for CUWALID workflows, setup, and documentation guidance.
       </div>
     </section>
   </main>

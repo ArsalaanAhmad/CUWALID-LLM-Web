@@ -129,6 +129,48 @@ body {
   align-items:center;
 }
 
+.chat-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.chat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-tab {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.chat-tab:hover {
+  border-color: color-mix(in srgb, var(--link) 55%, var(--border));
+}
+
+.chat-tab.active {
+  border-color: var(--link);
+  color: var(--link);
+  background: color-mix(in srgb, var(--link) 15%, transparent);
+}
+
+.chat-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--link) 70%, transparent);
+  outline-offset: 2px;
+}
+
 .chat-badge {
   border: 1px solid var(--border);
   background: var(--panel);
@@ -152,17 +194,35 @@ body {
   margin-right: 2px;
 }
 
-.audience-chip {
+.audience-chip,
+.mode-chip {
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 0.9rem;
   font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 
-.audience-chip.is-active {
+.audience-chip:hover,
+.mode-chip:hover {
+  border-color: color-mix(in srgb, var(--link) 55%, var(--border));
+}
+
+.audience-chip:focus-visible,
+.mode-chip:focus-visible,
+.example-chip:focus-visible,
+.attachment-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--link) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.audience-chip.is-active,
+.mode-chip.is-active {
   border-color: var(--link);
   color: var(--link);
   background: color-mix(in srgb, var(--link) 15%, transparent);
@@ -220,4 +280,137 @@ button {
   font-weight: 700;
 }
 
+.mode-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mode-title {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.examples-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.examples-label {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.examples-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.example-chip {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  text-align: left;
+}
+
+.example-chip:hover {
+  border-color: var(--link);
+  color: var(--link);
+  background: color-mix(in srgb, var(--link) 8%, transparent);
+}
+
+.attachment-row {
+  margin: 6px 0 12px 0;
+}
+
+.attachment-link {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.attachment-link:hover {
+  border-bottom-color: currentColor;
+}
+
+.loading-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--text) 20%, transparent);
+  border-top-color: var(--link);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+
+.loading-text {
+  opacity: 0.85;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
 .hint { margin-top: 10px; opacity: 0.75; font-size: 0.95rem; }
+
+@media (max-width: 700px) {
+  .chat-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .chat-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .mode-toggle,
+  .chat-tabs,
+  .audience-row,
+  .examples-list {
+    gap: 6px;
+  }
+
+  .chat-tabs-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .audience-chip,
+  .mode-chip,
+  .example-chip {
+    font-size: 0.85rem;
+    padding: 6px 10px;
+  }
+
+  .chat {
+    height: 60vh;
+  }
+}
