@@ -63,6 +63,17 @@ body {
   border-radius: 16px;
   background: var(--panel);
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.landing::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--primary) 70%, var(--link));
+  opacity: 0.7;
 }
 
 .hero-title {
@@ -77,6 +88,49 @@ body {
   opacity: 0.92;
   line-height: 1.55;
   font-size: 1.05rem;
+}
+
+.hero-typed {
+  margin: 0 auto 18px auto;
+  min-height: 1.6rem;
+  max-width: 72ch;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.caret {
+  display: inline-block;
+  width: 0.6ch;
+  animation: blink 1s step-end infinite;
+}
+
+.hero-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 auto 18px auto;
+  max-width: 900px;
+}
+
+.highlight-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bot) 55%, transparent);
+  padding: 12px;
+  text-align: left;
+}
+
+.highlight-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.highlight-text {
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .hero-actions {
@@ -376,6 +430,12 @@ button {
   }
 }
 
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 
 .hint { margin-top: 10px; opacity: 0.75; font-size: 0.95rem; }
 
@@ -384,6 +444,19 @@ button {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .landing {
+    padding: 38px 16px;
+  }
+
+  .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .hero-highlights {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .chat-actions {

@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const chat = document.getElementById("chat");
   const form = document.getElementById("chatForm");
   const input = document.getElementById("message");
+  const landingTypewriter = document.getElementById("landingTypewriter");
 
   const landing = document.getElementById("landing");
   const chatScreen = document.getElementById("chatScreen");
@@ -35,6 +36,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let chatTranscripts = {};
   // Optional bot-only typewriter effect (disabled for users who prefer reduced motion)
   const enableTypewriter = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const enableLandingTypewriter = enableTypewriter;
+
+  const landingLines = [
+    "Forecast mode: deterministic seasonal outlook retrieval.",
+    "Modelling mode: CUWALID workflow and system guidance.",
+    "Built for hydrology use cases with explicit guardrails."
+  ];
 
   const examplePrompts = {
     forecast: [
@@ -67,6 +75,52 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("theme", next);
     syncThemeLabel();
   });
+
+  // --- Landing typewriter ---
+  function initLandingTypewriter() {
+    if (!landingTypewriter) return;
+
+    if (!enableLandingTypewriter) {
+      landingTypewriter.textContent = landingLines[0];
+      return;
+    }
+
+    let lineIndex = 0;
+    let charIndex = 0;
+    let deleting = false;
+
+    function tick() {
+      const current = landingLines[lineIndex] || "";
+
+      if (!deleting) {
+        charIndex += 1;
+        landingTypewriter.textContent = current.slice(0, charIndex);
+
+        if (charIndex >= current.length) {
+          deleting = true;
+          setTimeout(tick, 1400);
+          return;
+        }
+
+        setTimeout(tick, 32);
+        return;
+      }
+
+      charIndex -= 1;
+      landingTypewriter.textContent = current.slice(0, Math.max(charIndex, 0));
+
+      if (charIndex <= 0) {
+        deleting = false;
+        lineIndex = (lineIndex + 1) % landingLines.length;
+        setTimeout(tick, 260);
+        return;
+      }
+
+      setTimeout(tick, 18);
+    }
+
+    tick();
+  }
 
   // --- View toggling ---
   function createConversationId() {
@@ -459,4 +513,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadChatState();
   renderExamplePrompts();
+  initLandingTypewriter();
 });
