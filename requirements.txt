@@ -13,3 +13,5 @@ typing-inspection==0.4.2
 annotated-types==0.7.0
 colorama==0.4.6
 MarkupSafe==3.0.3
+openai==1.109.1
+python-dotenv==1.1.1
