@@ -303,6 +303,73 @@ body {
 .user { margin-left:auto; background: var(--user); color: #fff; }
 .bot { margin-right:auto; background: var(--bot); color: var(--text); }
 
+.bot .md-content {
+  white-space: normal;
+}
+
+.bot .md-content > :first-child {
+  margin-top: 0;
+}
+
+.bot .md-content > :last-child {
+  margin-bottom: 0;
+}
+
+.bot .md-content h1,
+.bot .md-content h2,
+.bot .md-content h3,
+.bot .md-content h4 {
+  margin: 0.45rem 0 0.35rem;
+  line-height: 1.25;
+}
+
+.bot .md-content p {
+  margin: 0.35rem 0;
+}
+
+.bot .md-content ul,
+.bot .md-content ol {
+  margin: 0.35rem 0;
+  padding-left: 1.15rem;
+}
+
+.bot .md-content li + li {
+  margin-top: 0.2rem;
+}
+
+.bot .md-content code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.92em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+}
+
+.bot .md-content pre {
+  margin: 0.45rem 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  overflow-x: auto;
+}
+
+.bot .md-content pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.9em;
+}
+
+.bot .md-content a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bot .md-content a:hover {
+  opacity: 0.9;
+}
+
 .composer { display:flex; gap:10px; margin-top:12px; }
 
 input {

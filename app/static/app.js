@@ -315,10 +315,52 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- Chat helpers ---
-  function addBubble(text, who) {
+  function renderAssistantMarkdown(text) {
+    const raw = String(text || "");
+
+    // Fallback to plain text if markdown libs are unavailable.
+    if (!window.marked || !window.DOMPurify) {
+      const fallback = document.createElement("div");
+      fallback.className = "md-content";
+      fallback.textContent = raw;
+      return fallback;
+    }
+
+    const rendered = window.marked.parse(raw, {
+      gfm: true,
+      breaks: true,
+      mangle: false,
+      headerIds: false
+    });
+
+    const safeHtml = window.DOMPurify.sanitize(rendered, {
+      USE_PROFILES: { html: true },
+      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i
+    });
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "md-content";
+    wrapper.innerHTML = safeHtml;
+
+    // Always open links safely.
+    wrapper.querySelectorAll("a").forEach((a) => {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer nofollow");
+    });
+
+    return wrapper;
+  }
+
+  function addBubble(text, who, options = {}) {
     const div = document.createElement("div");
     div.className = `bubble ${who}`;
-    div.textContent = text;
+
+    if (who === "bot" && options.markdown) {
+      div.appendChild(renderAssistantMarkdown(text));
+    } else {
+      div.textContent = text;
+    }
+
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
     saveActiveTranscript();
@@ -369,13 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function renderBotReply(replyText) {
     const safeText = replyText || "No response received.";
-
-    if (enableTypewriter) {
-      await typewriterBubble(safeText, "bot", 10);
-      return;
-    }
-
-    addBubble(safeText, "bot");
+    addBubble(safeText, "bot", { markdown: true });
   }
 
   function addAttachment(url, label = "Open attachment") {

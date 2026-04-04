@@ -6,12 +6,10 @@ import re
 import time
 import logging
 from openai import AsyncOpenAI
-
 from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger("cuwalid.extractor.openrouter")
-
 MODEL_NAME = os.getenv("LLM_MODEL", "qwen/qwen3-235b-a22b-thinking-2507")
 
 client = AsyncOpenAI(

@@ -16,6 +16,7 @@ import time
 import uuid
 from typing import Literal
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +26,9 @@ from pydantic import BaseModel
 from app.core.chat_service import ChatService, SUPPORTED_MODES, SUPPORTED_TIERS
 from app.core.forecast_store import ForecastStore
 from app.core.session_store import SessionStore
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper()
