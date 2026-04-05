@@ -2,8 +2,12 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.log
 .env
 .venv/
 venv/
 .git/
 .gitignore
+.pytest_cache/
+.mypy_cache/
+.vscode/

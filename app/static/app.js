@@ -30,10 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const CHAT_SESSIONS_KEY = "chat_sessions";
   const ACTIVE_CHAT_ID_KEY = "active_chat_id";
   const CHAT_TRANSCRIPTS_KEY = "chat_transcripts";
+  const REQUEST_TIMEOUT_MS = 25000;
   const MAX_CHATS = 3;
   let chats = [];
   let activeChatId = "";
   let chatTranscripts = {};
+  let isRequestInFlight = false;
   // Optional bot-only typewriter effect (disabled for users who prefer reduced motion)
   const enableTypewriter = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const enableLandingTypewriter = enableTypewriter;
@@ -501,6 +503,8 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    if (isRequestInFlight) return;
+
     const message = input.value.trim();
     if (!message) return;
 
@@ -520,13 +524,22 @@ document.addEventListener("DOMContentLoaded", () => {
     // Loading bubble
     const loadingId = `loading-${Date.now()}`;
     addLoadingBubble(loadingId);
+    isRequestInFlight = true;
+    input.disabled = true;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildChatPayload(message))
+        body: JSON.stringify(buildChatPayload(message)),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -540,10 +553,19 @@ document.addEventListener("DOMContentLoaded", () => {
       await renderBotReply(data.reply);
       renderAttachments(data.attachments);
     } catch (err) {
+      clearTimeout(timeoutId);
       removeLoadingBubble(loadingId);
 
-      addBubble("Network error. Try again.", "bot");
+      if (err && err.name === "AbortError") {
+        addBubble("This request timed out. Please try again with a shorter prompt or retry in a moment.", "bot");
+      } else {
+        addBubble("Network error. Try again.", "bot");
+      }
       console.error(err);
+    } finally {
+      isRequestInFlight = false;
+      input.disabled = false;
+      input.focus();
     }
   });
 

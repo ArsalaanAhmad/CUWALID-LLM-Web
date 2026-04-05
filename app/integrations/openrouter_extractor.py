@@ -5,16 +5,19 @@ import json
 import re
 import time
 import logging
+import asyncio
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger("cuwalid.extractor.openrouter")
 MODEL_NAME = os.getenv("LLM_MODEL", "qwen/qwen3-235b-a22b-thinking-2507")
+OPENROUTER_TIMEOUT_SECONDS = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "18"))
 
 client = AsyncOpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1"
+    base_url="https://openrouter.ai/api/v1",
+    timeout=OPENROUTER_TIMEOUT_SECONDS,
 )
 
 EXTRACTION_SCHEMA = {
@@ -111,13 +114,25 @@ def _normalize_extracted_payload(payload: dict) -> dict:
 async def extract_intent_via_openrouter(text: str) -> dict:
     start = time.perf_counter()
 
-    response = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text}
-        ]
-    )
+    try:
+        response = await asyncio.wait_for(
+            client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": text}
+                ],
+                temperature=0,
+                max_tokens=220,
+            ),
+            timeout=OPENROUTER_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.error("extractor_openrouter_timeout model=%s seconds=%s", MODEL_NAME, OPENROUTER_TIMEOUT_SECONDS)
+        return dict(EXTRACTION_SCHEMA)
+    except Exception as exc:
+        logger.exception("extractor_openrouter_failed model=%s error=%s", MODEL_NAME, exc)
+        return dict(EXTRACTION_SCHEMA)
 
     raw = (response.choices[0].message.content or "").strip()
     candidate = _extract_json_object_text(raw)

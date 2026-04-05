@@ -17,5 +17,9 @@ class Settings:
     mcp_tool_arg: str = os.getenv("MCP_TOOL_ARG", "query")
     openrouter_api_key: str = os.getenv("OPENROUTER_API_KEY", "")
     llm_model: str = os.getenv("LLM_MODEL", "qwen/qwen3-235b-a22b-thinking-2507")
+    modelling_llm_model: str = os.getenv("MODELLING_LLM_MODEL", os.getenv("LLM_MODEL", "qwen/qwen3-235b-a22b-thinking-2507"))
+    openrouter_timeout_seconds: float = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "18"))
+    modelling_retry_count: int = int(os.getenv("MODELLING_RETRY_COUNT", "1"))
+    forecast_help_use_llm: bool = os.getenv("FORECAST_HELP_USE_LLM", "true").strip().lower() in {"1", "true", "yes", "on"}
 
 settings = Settings()

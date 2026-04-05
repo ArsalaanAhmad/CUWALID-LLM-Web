@@ -1,6 +1,7 @@
 import logging
 import time
 import re
+import asyncio
 from difflib import SequenceMatcher, get_close_matches
 from pathlib import Path
 from typing import Any
@@ -9,7 +10,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 from app.core.config import settings
-from app.core.extractor_stub import extract_intent_stub
+from app.integrations.extractor_stub import extract_intent_stub
 from app.core.forecast_store import ForecastStore
 from app.core.guardrails import (
     is_nonsense_or_empty,
@@ -19,7 +20,7 @@ from app.core.guardrails import (
     out_of_scope_response,
     refusal_response,
 )
-from app.core.openrouter_extractor import extract_intent_via_openrouter
+from app.integrations.openrouter_extractor import extract_intent_via_openrouter
 from app.core.session_store import SessionStore
 
 # Load environment variables
@@ -71,6 +72,41 @@ SEASON_SYNONYMS = {
 
 logger = logging.getLogger("cuwalid.chat_service")
 
+FORECAST_ACTION_WORDS = {
+    "forecast",
+    "outlook",
+    "predict",
+    "prediction",
+    "show",
+    "give",
+    "tell",
+    "risk",
+    "status",
+}
+
+FORECAST_META_PATTERNS = [
+    "can you",
+    "do you support",
+    "what languages",
+    "which languages",
+    "supported languages",
+    "can you speak",
+    "what can you do",
+    "help",
+    "how do i use",
+    "what countries",
+    "supported countries",
+    "what variables",
+    "supported variables",
+    "what forecast types",
+    "forecast types",
+    "how should i phrase",
+    "how to phrase",
+]
+
+FORECAST_LOW_SCORE_THRESHOLD = 2
+FORECAST_META_ROUTE_THRESHOLD = 4
+
 # Load expert.prompt for modelling chat
 EXPERT_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "expert.prompt"
 EXPERT_SYSTEM_PROMPT = ""
@@ -82,6 +118,18 @@ if EXPERT_PROMPT_PATH.exists():
         logger.warning("expert_prompt_load_failed path=%s error=%s", EXPERT_PROMPT_PATH, exc)
 else:
     logger.warning("expert_prompt_not_found path=%s", EXPERT_PROMPT_PATH)
+
+
+FORECAST_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "forecast.prompt"
+FORECAST_SYSTEM_PROMPT = ""
+if FORECAST_PROMPT_PATH.exists():
+    try:
+        FORECAST_SYSTEM_PROMPT = FORECAST_PROMPT_PATH.read_text()
+        logger.info("forecast_prompt_loaded path=%s len=%s", FORECAST_PROMPT_PATH, len(FORECAST_SYSTEM_PROMPT))
+    except Exception as exc:
+        logger.warning("forecast_prompt_load_failed path=%s error=%s", FORECAST_PROMPT_PATH, exc)
+else:
+    logger.warning("forecast_prompt_not_found path=%s", FORECAST_PROMPT_PATH)
 
 
 def merge_intents(old: dict[str, Any] | None, new: dict[str, Any] | None) -> dict[str, Any]:
@@ -108,23 +156,103 @@ async def _call_openrouter_modelling(message: str) -> str:
         logger.error("expert_system_prompt_empty")
         return ""
 
+    attempts = max(settings.modelling_retry_count + 1, 1)
+    client = AsyncOpenAI(
+        api_key=settings.openrouter_api_key,
+        base_url="https://openrouter.ai/api/v1",
+        timeout=settings.openrouter_timeout_seconds,
+    )
+
+    for attempt in range(1, attempts + 1):
+        try:
+            # Retry with a lower token budget to recover from slow model responses.
+            max_tokens = 900 if attempt == 1 else 350
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model=settings.modelling_llm_model,
+                    messages=[
+                        {"role": "system", "content": EXPERT_SYSTEM_PROMPT},
+                        {"role": "user", "content": message},
+                    ],
+                    temperature=0.35,
+                    max_tokens=max_tokens,
+                ),
+                timeout=settings.openrouter_timeout_seconds,
+            )
+            return response.choices[0].message.content or ""
+        except asyncio.TimeoutError:
+            logger.warning(
+                "openrouter_modelling_timeout seconds=%s attempt=%s/%s model=%s",
+                settings.openrouter_timeout_seconds,
+                attempt,
+                attempts,
+                settings.modelling_llm_model,
+            )
+        except Exception as exc:
+            logger.exception(
+                "openrouter_modelling_failed attempt=%s/%s model=%s error=%s",
+                attempt,
+                attempts,
+                settings.modelling_llm_model,
+                exc,
+            )
+
+    return ""
+
+
+async def _call_openrouter_forecast_help(
+    message: str,
+    *,
+    capability_context: str,
+    conversation_context: str = "",
+) -> str:
+    """
+    Call OpenRouter for forecast capability/help responses only.
+    """
+    if not settings.openrouter_api_key:
+        logger.error("openrouter_api_key_not_set")
+        return ""
+
+    if not FORECAST_SYSTEM_PROMPT:
+        logger.error("forecast_system_prompt_empty")
+        return ""
+
     try:
         client = AsyncOpenAI(
             api_key=settings.openrouter_api_key,
             base_url="https://openrouter.ai/api/v1",
+            timeout=settings.openrouter_timeout_seconds,
         )
-        response = await client.chat.completions.create(
-            model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": EXPERT_SYSTEM_PROMPT},
-                {"role": "user", "content": message},
-            ],
-            temperature=0.7,
-            max_tokens=2048,
+        response = await asyncio.wait_for(
+            client.chat.completions.create(
+                model=settings.llm_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"{FORECAST_SYSTEM_PROMPT}\n\n"
+                            f"Capability context:\n{capability_context}\n\n"
+                            "If the user sends a short follow-up reaction (like disappointment), respond naturally and briefly, "
+                            "then suggest one useful next forecast query."
+                        ),
+                    },
+                    {
+                        "role": "system",
+                        "content": f"Recent conversation context:\n{conversation_context}" if conversation_context else "Recent conversation context: (none)",
+                    },
+                    {"role": "user", "content": message},
+                ],
+                temperature=0.3,
+                max_tokens=420,
+            ),
+            timeout=settings.openrouter_timeout_seconds,
         )
         return response.choices[0].message.content or ""
+    except asyncio.TimeoutError:
+        logger.error("openrouter_forecast_help_timeout seconds=%s", settings.openrouter_timeout_seconds)
+        return ""
     except Exception as exc:
-        logger.exception("openrouter_modelling_failed error=%s", exc)
+        logger.exception("openrouter_forecast_help_failed error=%s", exc)
         return ""
 
 
@@ -223,6 +351,18 @@ def _normalize_location(value: Any) -> str | None:
     return _normalize_spaces_hyphens_underscores(str(value))
 
 
+def _normalize_for_scoring(text: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9\s]", " ", (text or "").lower()).split())
+
+
+def _contains_any_phrase(text: str, phrases: list[str] | set[str]) -> bool:
+    return any(p in text for p in phrases)
+
+
+def _looks_like_question(text: str) -> bool:
+    return "?" in text or text.strip().lower().startswith(("what", "which", "how", "can", "do", "is", "are"))
+
+
 def get_missing_field(intent: dict) -> str | None:
     """
     Return the first missing required field from the standard forecast intent schema.
@@ -275,26 +415,35 @@ def format_forecast_response(
 ) -> str:
     """
     Format deterministic forecast outputs by audience tier.
+    Keep data deterministic; improve tone to be natural, not robotic.
     """
     variable_title = variable.replace("_", " ")
     place = f"{location} ({country.title()})"
 
     if tier == "policy-makers":
         return (
-            f"{place}: {variable_title.title()} outlook for {season} {year} is {status_label}. "
-            f"This indicates elevated likelihood relative to climatology, not certainty. "
-            f"Use with other evidence as conditions may evolve."
+            f"For {place}, the {variable_title.title()} outlook for {season} {year} is **{status_label}**. "
+            f"This indicates elevated likelihood relative to climatology—not certainty. "
+            f"Use this forecast alongside other evidence, as conditions may evolve."
         )
 
     if tier == "practitioners":
         return (
-            f"{place} - {variable_title.title()} for {season} {year}: {status_label} (code {status_code}). "
-            f"This is a probabilistic seasonal signal and should be combined with local monitoring."
+            f"{place}: {variable_title.title()} forecast for {season} {year} is **{status_label}** (code {status_code}). "
+            f"This is a probabilistic signal—combine it with local monitoring for the best decision-making."
         )
 
     return (
-        f"For {place}, the {variable_title} forecast for {season} {year} is {status_label}. "
-        f"This is a seasonal outlook, so real conditions can still vary."
+        f"Based on the current seasonal data, {place}'s {variable_title} for {season} {year} is looking **{status_label}**. "
+        f"As always with seasonal outlooks, actual conditions on the ground can still vary."
+    )
+
+
+def modelling_fallback_response(docs_url: str) -> str:
+    return (
+        "OpenRouter is currently slow or unavailable, so I could not complete the modelling response right now. "
+        "You can still continue with deployment using the CUWALID documentation while retrying in a moment. "
+        f"Docs: {docs_url}"
     )
 
 
@@ -325,6 +474,24 @@ class ChatService:
         if self.chat_provider == "openrouter":
             start = time.perf_counter()
             intent = await extract_intent_via_openrouter(message)
+
+            # Backfill sparse extractor output with deterministic parsing so we do not
+            # ask for fields that are clearly present in the user's message.
+            intent = intent if isinstance(intent, dict) else {}
+            fallback = extract_intent_stub(message)
+            backfilled: dict[str, Any] = {}
+            for field in REQUIRED_FIELDS:
+                if _is_missing(intent.get(field)) and not _is_missing(fallback.get(field)):
+                    backfilled[field] = fallback.get(field)
+
+            if backfilled:
+                intent = merge_intents(intent, backfilled)
+                logger.info(
+                    "extractor_openrouter_backfilled conversation_id=%s fields=%s",
+                    conversation_id,
+                    sorted(list(backfilled.keys())),
+                )
+
             logger.debug(
                 "extractor_openrouter_complete conversation_id=%s duration_ms=%.2f",
                 conversation_id,
@@ -340,6 +507,127 @@ class ChatService:
             (time.perf_counter() - start) * 1000,
         )
         return intent
+
+    def _forecast_capability_context(self) -> str:
+        countries = sorted(self.store.supported_countries) or ["kenya", "ethiopia", "somalia"]
+        variables = sorted(self.store.supported_variables) or ["crop", "pasture", "surface_water", "groundwater", "flood"]
+        seasons = sorted({s for (s, _y) in self.store.supported_seasons}) or sorted(SEASON_SYNONYMS.values())
+        years = sorted({_y for (_s, _y) in self.store.supported_seasons})
+        languages = sorted(set(LANGUAGE_SYNONYMS.values()))
+
+        years_text = ", ".join([str(y) for y in years]) if years else "available years depend on loaded data"
+        return (
+            f"Supported countries: {', '.join(countries)}\n"
+            f"Supported variables: {', '.join(variables)}\n"
+            f"Supported seasons: {', '.join(seasons)}\n"
+            f"Supported years: {years_text}\n"
+            f"Supported languages: {', '.join(languages)}"
+        )
+
+    def _score_forecast_intent(self, message: str) -> tuple[int, dict[str, Any]]:
+        normalized = _normalize_for_scoring(message)
+        tokens = set(normalized.split())
+
+        variable_tokens = set(VARIABLE_SYNONYMS.keys()) | set(VARIABLE_SYNONYMS.values())
+        country_tokens = set(self.store.supported_countries) or {"kenya", "ethiopia", "somalia"}
+        season_tokens = set(SEASON_SYNONYMS.keys()) | {s.lower() for s in SEASON_SYNONYMS.values()}
+        language_tokens = set(LANGUAGE_SYNONYMS.keys()) | set(LANGUAGE_SYNONYMS.values())
+
+        year_hit = bool(re.search(r"\b(19|20)\d{2}\b", normalized))
+        variable_hit = any(v.replace("_", " ") in normalized for v in variable_tokens)
+        country_hit = any(c in tokens for c in country_tokens)
+        season_hit = any(s in tokens for s in season_tokens)
+        language_hit = any(l in tokens for l in language_tokens)
+        action_word_hit = _contains_any_phrase(normalized, FORECAST_ACTION_WORDS)
+        meta_help_hit = _contains_any_phrase(normalized, FORECAST_META_PATTERNS)
+
+        score = 0
+        score += 3 if variable_hit else 0
+        score += 2 if country_hit else 0
+        score += 2 if season_hit else 0
+        score += 1 if year_hit else 0
+        score += 1 if language_hit else 0
+        score += 2 if action_word_hit else 0
+        score -= 3 if meta_help_hit else 0
+
+        signals = {
+            "variable_hit": variable_hit,
+            "country_hit": country_hit,
+            "season_hit": season_hit,
+            "year_hit": year_hit,
+            "language_hit": language_hit,
+            "action_word_hit": action_word_hit,
+            "meta_help_hit": meta_help_hit,
+        }
+        return score, signals
+
+    def _is_forecast_meta_question(self, message: str, signals: dict[str, Any]) -> bool:
+        normalized = _normalize_for_scoring(message)
+
+        capability_words = {
+            "support",
+            "supported",
+            "languages",
+            "language",
+            "countries",
+            "country",
+            "variables",
+            "variable",
+            "types",
+            "format",
+            "phrase",
+            "example",
+            "examples",
+            "usage",
+            "use",
+        }
+        has_capability_word = any(w in normalized.split() for w in capability_words)
+
+        # Meta questions are often question-shaped and capability-oriented,
+        # without a concrete place+time forecast payload.
+        has_forecast_payload = bool(signals.get("year_hit")) and bool(signals.get("country_hit"))
+        return _looks_like_question(message) and (bool(signals.get("meta_help_hit")) or has_capability_word) and not has_forecast_payload
+
+    async def _handle_forecast_help_chat(self, *, message: str, tier: str, conversation_id: str, reason: str, intent_score: int = 0, signals: dict[str, Any] | None = None) -> dict[str, Any]:
+        capability_context = self._forecast_capability_context()
+        history = self.session_store.get(conversation_id).history[-4:]
+        conversation_context = "\n".join([f"{h.get('role', 'user')}: {h.get('text', '')}" for h in history])
+
+        if settings.forecast_help_use_llm:
+            reply_text = await _call_openrouter_forecast_help(
+                message,
+                capability_context=capability_context,
+                conversation_context=conversation_context,
+            )
+        else:
+            reply_text = ""
+
+        if not reply_text:
+            lowered = message.lower()
+            if any(phrase in lowered for phrase in {"shame", "too bad", "sad", "unfortunate"}):
+                reply_text = (
+                    "I understand, that is frustrating. If you want, I can try a nearby location or another season/year "
+                    "for the same variable."
+                )
+            else:
+                reply_text = (
+                    "I can help with seasonal forecast requests for supported countries, variables, seasons, and languages. "
+                    "Try: 'Give me the flood forecast for Garissa, Kenya for OND 2026 in sw'."
+                )
+
+        return {
+            "kind": "success",
+            "reply": reply_text,
+            "meta": {
+                "mode": "forecast",
+                "tier": tier,
+                "route": "forecast_help",
+                "reason": reason,
+                "conversation_id": conversation_id,
+                "intent_score": intent_score,
+                "signals": signals or {},
+            },
+        }
 
     def _handle_intent(self, intent: dict[str, Any], conversation_id: str) -> dict[str, Any]:
         normalized_intent = dict(intent or {})
@@ -569,11 +857,13 @@ class ChatService:
     async def handle_forecast_chat(self, *, message: str, tier: str, conversation_id: str) -> dict[str, Any]:
         stage_start = time.perf_counter()
         state = self.session_store.get(conversation_id)
+        has_pending_intent = bool(state.intent) and get_missing_field(state.intent) is not None
         logger.info(
-            "forecast_chat_start conversation_id=%s tier=%s history_len=%s",
+            "forecast_chat_start conversation_id=%s tier=%s history_len=%s has_pending_intent=%s",
             conversation_id,
             tier,
             len(state.history),
+            has_pending_intent,
         )
 
         self.session_store.update(conversation_id, mode="forecast", tier=tier)
@@ -603,6 +893,50 @@ class ChatService:
             result.setdefault("meta", {})
             result["meta"]["mode"] = "forecast"
             result["meta"]["tier"] = tier
+            self.session_store.update(conversation_id, append_history={"role": "assistant", "text": result["reply"]})
+            return result
+
+        score, signals = self._score_forecast_intent(message)
+        logger.info(
+            "forecast_intent_score conversation_id=%s score=%s signals=%s",
+            conversation_id,
+            score,
+            signals,
+        )
+
+        # If we already have partial slots from prior turns, treat short replies
+        # like "kenya" as slot-filling instead of generic forecast-help chat.
+        if score <= FORECAST_LOW_SCORE_THRESHOLD and not has_pending_intent:
+            result = await self._handle_forecast_help_chat(
+                message=message,
+                tier=tier,
+                conversation_id=conversation_id,
+                reason="low_intent_score",
+                intent_score=score,
+                signals=signals,
+            )
+            self.session_store.update(conversation_id, append_history={"role": "assistant", "text": result["reply"]})
+            return result
+
+        if signals.get("meta_help_hit") and score <= FORECAST_META_ROUTE_THRESHOLD and not has_pending_intent:
+            result = await self._handle_forecast_help_chat(
+                message=message,
+                tier=tier,
+                conversation_id=conversation_id,
+                reason="forecast_meta_question",
+            )
+            self.session_store.update(conversation_id, append_history={"role": "assistant", "text": result["reply"]})
+            return result
+
+        if self._is_forecast_meta_question(message, signals) and not has_pending_intent:
+            result = await self._handle_forecast_help_chat(
+                message=message,
+                tier=tier,
+                conversation_id=conversation_id,
+                reason="forecast_meta_question_detected",
+                intent_score=score,
+                signals=signals,
+            )
             self.session_store.update(conversation_id, append_history={"role": "assistant", "text": result["reply"]})
             return result
 
@@ -751,12 +1085,15 @@ class ChatService:
         if not reply_text:
             logger.error("modelling_openrouter_failed conversation_id=%s", conversation_id)
             result = {
-                "kind": "error",
-                "reply": "I encountered an error calling the OpenRouter service. Please try again.",
+                "kind": "success",
+                "reply": modelling_fallback_response(self.docs_url),
+                "attachments": [{"type": "link", "url": self.docs_url, "label": "CUWALID documentation"}],
                 "meta": {
                     "mode": "modelling",
                     "tier": tier,
-                    "reason": "openrouter_call_failed",
+                    "reason": "openrouter_call_failed_fallback",
+                    "provider": "openrouter",
+                    "model": settings.modelling_llm_model,
                 },
             }
             self.session_store.update(conversation_id, append_history={"role": "assistant", "text": result["reply"]})

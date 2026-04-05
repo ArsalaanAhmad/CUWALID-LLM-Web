@@ -1,0 +1,16 @@
+services:
+  cuwalid-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cuwalid-web
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      CHAT_PROVIDER: ${CHAT_PROVIDER:-openrouter}
+      CUWALID_DATA_ROOT: ${CUWALID_DATA_ROOT:-data}
+      OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-18}
+      MODELLING_RETRY_COUNT: ${MODELLING_RETRY_COUNT:-1}
+    restart: unless-stopped
