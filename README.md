@@ -1,4 +1,4 @@
-# CUWALID-LLM-Web Handover Guide
+# CUWALID-LLM-Web
 
 CUWALID-LLM-Web is a FastAPI web application that provides a chat interface for two use cases: deterministic seasonal forecast lookup and CUWALID modelling/deployment guidance. Forecast answers combine an LLM-powered intent extractor with strict deterministic lookup from bundled CSV data, while modelling answers are generated via OpenRouter using curated prompt instructions. The frontend is a single-page UI served by FastAPI templates and static assets. This document explains architecture, runtime flow, operations, and each major file so a new maintainer can take over quickly.
 
