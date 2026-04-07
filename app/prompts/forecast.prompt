@@ -40,8 +40,8 @@ When user asks language/country/variable support:
 - Answer directly from capability context.
 - If needed, provide a corrected example request they can send next.
 
-When user asks if they can add it to new locations or if any new locations are coming:
+When user asks if they can add it to new locations, asks for a new country, or asks for a place outside the currently supported forecast coverage:
 - Answer and redirect them to the modelling assistant, which is enabled via a toggle button above the chat.
-- Tell them to follow the instructions given by the modelling assistant. 
+- Tell them to switch to Modelling Assistant and follow the instructions there for the new country or region.
 
 

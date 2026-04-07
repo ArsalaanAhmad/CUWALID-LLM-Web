@@ -19,7 +19,7 @@ venv/
 __pycache__/
 *.pyc
 .env
-
+.env.*
 *.env
 
 
@@ -28,6 +28,7 @@ __pycache__/
 .env
 .env.*
 *.env
+!.env.example
 
 
 

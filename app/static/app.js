@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const addChatBtn = document.getElementById("addChatBtn");
 
   // Audience + mode
+  const audienceRow = document.querySelector(".audience-row");
   const audienceChips = document.querySelectorAll(".audience-chip");
   const modeChips = document.querySelectorAll(".mode-chip");
   const examplesList = document.getElementById("examplesList");
@@ -25,12 +26,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const root = document.documentElement;
 
   // App state
-  let selectedAudience = "general-public";
+  let selectedForecastAudience = "general-public";
   let selectedMode = "forecast";
   const CHAT_SESSIONS_KEY = "chat_sessions";
   const ACTIVE_CHAT_ID_KEY = "active_chat_id";
   const CHAT_TRANSCRIPTS_KEY = "chat_transcripts";
-  const REQUEST_TIMEOUT_MS = 25000;
+  const FORECAST_REQUEST_TIMEOUT_MS = 60000;
+  const MODELLING_REQUEST_TIMEOUT_MS = 180000;
   const MAX_CHATS = 3;
   let chats = [];
   let activeChatId = "";
@@ -316,6 +318,22 @@ document.addEventListener("DOMContentLoaded", () => {
         : "Ask about CUWALID setup, workflows, or documentation...";
   }
 
+  function setSelectedMode(nextMode) {
+    if (!nextMode) return;
+
+    selectedMode = nextMode;
+    modeChips.forEach((chip) => {
+      chip.classList.toggle("is-active", chip.dataset.mode === selectedMode);
+    });
+
+    // Modelling Assistant is effectively practitioner-oriented, so hide audience controls there.
+    if (audienceRow) {
+      audienceRow.classList.toggle("hidden", selectedMode === "modelling");
+    }
+
+    renderExamplePrompts();
+  }
+
   // --- Chat helpers ---
   function renderAssistantMarkdown(text) {
     const raw = String(text || "");
@@ -385,7 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
     saveActiveTranscript();
   }
 
-  function typewriterBubble(text, who = "bot", speed = 12) {
+  function typewriterBubble(text, who = "bot", speed = 12, options = {}) {
     return new Promise((resolve) => {
       const div = document.createElement("div");
       div.className = `bubble ${who}`;
@@ -402,6 +420,10 @@ document.addEventListener("DOMContentLoaded", () => {
           saveActiveTranscript();
           setTimeout(step, speed);
         } else {
+          if (who === "bot" && options.markdown) {
+            div.textContent = "";
+            div.appendChild(renderAssistantMarkdown(text));
+          }
           saveActiveTranscript();
           resolve();
         }
@@ -413,6 +435,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function renderBotReply(replyText) {
     const safeText = replyText || "No response received.";
+    if (enableTypewriter) {
+      await typewriterBubble(safeText, "bot", 10, { markdown: true });
+      return;
+    }
     addBubble(safeText, "bot", { markdown: true });
   }
 
@@ -463,7 +489,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return {
       message,
       mode: selectedMode,
-      tier: selectedAudience,
+      tier: selectedMode === "modelling" ? "practitioners" : selectedForecastAudience,
       conversation_id: activeChatId
     };
   }
@@ -485,17 +511,14 @@ document.addEventListener("DOMContentLoaded", () => {
     chip.addEventListener("click", () => {
       audienceChips.forEach((c) => c.classList.remove("is-active"));
       chip.classList.add("is-active");
-      selectedAudience = chip.dataset.audience;
+      selectedForecastAudience = chip.dataset.audience;
     });
   });
 
   // --- Mode chips ---
   modeChips.forEach((chip) => {
     chip.addEventListener("click", () => {
-      modeChips.forEach((c) => c.classList.remove("is-active"));
-      chip.classList.add("is-active");
-      selectedMode = chip.dataset.mode;
-      renderExamplePrompts();
+      setSelectedMode(chip.dataset.mode);
     });
   });
 
@@ -527,10 +550,14 @@ document.addEventListener("DOMContentLoaded", () => {
     isRequestInFlight = true;
     input.disabled = true;
 
+    const requestTimeoutMs = selectedMode === "modelling"
+      ? MODELLING_REQUEST_TIMEOUT_MS
+      : FORECAST_REQUEST_TIMEOUT_MS;
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
-    }, REQUEST_TIMEOUT_MS);
+    }, requestTimeoutMs);
 
     try {
       const res = await fetch("/api/chat", {
@@ -552,12 +579,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       await renderBotReply(data.reply);
       renderAttachments(data.attachments);
+
+      if (data?.meta?.route === "modelling" || data?.meta?.target_mode === "modelling") {
+        setSelectedMode("modelling");
+      }
     } catch (err) {
       clearTimeout(timeoutId);
       removeLoadingBubble(loadingId);
 
       if (err && err.name === "AbortError") {
-        addBubble("This request timed out. Please try again with a shorter prompt or retry in a moment.", "bot");
+        addBubble(
+          selectedMode === "modelling"
+            ? "The modelling response is taking longer than expected. Please retry, or ask for a shorter step-by-step answer."
+            : "This request timed out. Please try again with a shorter prompt or retry in a moment.",
+          "bot"
+        );
       } else {
         addBubble("Network error. Try again.", "bot");
       }
@@ -570,6 +606,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   loadChatState();
-  renderExamplePrompts();
+  setSelectedMode(selectedMode);
   initLandingTypewriter();
 });

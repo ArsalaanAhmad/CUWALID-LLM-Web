@@ -165,8 +165,8 @@ async def _call_openrouter_modelling(message: str) -> str:
 
     for attempt in range(1, attempts + 1):
         try:
-            # Retry with a lower token budget to recover from slow model responses.
-            max_tokens = 900 if attempt == 1 else 350
+            # Keep modelling outputs concise enough to reduce timeout risk.
+            max_tokens = 650 if attempt == 1 else 260
             response = await asyncio.wait_for(
                 client.chat.completions.create(
                     model=settings.modelling_llm_model,
@@ -447,6 +447,21 @@ def modelling_fallback_response(docs_url: str) -> str:
     )
 
 
+def modelling_redirect_response() -> dict:
+    return {
+        "kind": "redirect",
+        "reply": (
+            "I can help with supported forecast locations here, but new countries or new regions should be handled in the "
+            "Modelling Assistant. Switch to that mode above, then follow its instructions for the new location."
+        ),
+        "meta": {
+            "reason": "modelling_redirect",
+            "route": "modelling",
+            "target_mode": "modelling",
+        },
+    }
+
+
 class ChatService:
     """
     Keeps chat orchestration logic out of FastAPI route wiring.
@@ -657,6 +672,28 @@ class ChatService:
             country_suggestion = None
             country_autocorrected = False
 
+        country = normalized_intent.get("country")
+        supported_countries = sorted(self.store.supported_countries)
+        if country and supported_countries and country not in self.store.supported_countries:
+            logger.info(
+                "forecast_unsupported_country conversation_id=%s country=%s supported=%s",
+                conversation_id,
+                country,
+                supported_countries,
+            )
+            return {
+                "kind": "clarify",
+                "reply": (
+                    f"I currently support these countries: {', '.join([c.title() for c in supported_countries])}. "
+                    "Please choose one and share the location/district."
+                ),
+                "meta": {
+                    "reason": "unsupported_country",
+                    "country": country,
+                    "supported_countries": supported_countries,
+                },
+            }
+
         missing_field = get_missing_field(normalized_intent)
         if missing_field:
             logger.info(
@@ -780,18 +817,17 @@ class ChatService:
                 country,
                 location,
             )
-            return {
-                "kind": "clarify",
-                "reply": (
-                    f"I couldn’t find '{location}' in {country.title()}. "
-                    "Try a nearby district/county name or a different spelling."
-                ),
-                "meta": {
-                    "reason": "unknown_location",
-                    "country": country,
-                    "location": location,
-                },
-            }
+            result = modelling_redirect_response()
+            result["reply"] = (
+                f"I couldn’t find '{location}' in the deployed forecast locations for {country.title()}. "
+                "Please switch to Modelling Assistant above and follow its instructions to add or work with that location."
+            )
+            result.setdefault("meta", {})
+            result["meta"]["reason"] = "location_not_deployed"
+            result["meta"]["country"] = country
+            result["meta"]["location"] = location
+            result["meta"]["mode"] = "forecast"
+            return result
 
         status_code = self.store.get_prediction(country, season, year, location_id, variable)
         if status_code is None:
@@ -918,7 +954,7 @@ class ChatService:
             self.session_store.update(conversation_id, append_history={"role": "assistant", "text": result["reply"]})
             return result
 
-        if signals.get("meta_help_hit") and score <= FORECAST_META_ROUTE_THRESHOLD and not has_pending_intent:
+        if signals.get("meta_help_hit") and score <= FORECAST_META_ROUTE_THRESHOLD:
             result = await self._handle_forecast_help_chat(
                 message=message,
                 tier=tier,
@@ -928,7 +964,7 @@ class ChatService:
             self.session_store.update(conversation_id, append_history={"role": "assistant", "text": result["reply"]})
             return result
 
-        if self._is_forecast_meta_question(message, signals) and not has_pending_intent:
+        if self._is_forecast_meta_question(message, signals):
             result = await self._handle_forecast_help_chat(
                 message=message,
                 tier=tier,
@@ -1013,6 +1049,11 @@ class ChatService:
             result["meta"].setdefault("reason", "missing_required_fields")
             result["meta"]["mode"] = "forecast"
             result["meta"]["tier"] = tier
+        elif result.get("kind") == "redirect":
+            result.setdefault("meta", {})
+            result["meta"]["mode"] = "forecast"
+            result["meta"]["tier"] = tier
+            self.session_store.clear_intent(conversation_id)
 
         logger.info(
             "forecast_chat_complete conversation_id=%s kind=%s duration_ms=%.2f",
